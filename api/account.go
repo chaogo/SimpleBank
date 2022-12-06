@@ -10,7 +10,7 @@ import (
 
 type createAccountRequest struct {
 	Owner    string `json:"owner" binding:"required"` // With ShouldBindJSON, Gin will validate the output object to make sure it satisfy the conditions we specified in the binding tag
-	Currency string `json:"currency" binding:"required,oneof=USD EUR"`
+	Currency string `json:"currency" binding:"required,currency"`
 }
 
 func (server *Server) createAccount(ctx *gin.Context) {
