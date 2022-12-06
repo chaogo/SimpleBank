@@ -6,22 +6,27 @@ import (
 	"fmt"          // formatted I/O
 )
 
-// Store defines all functions to execute db queries and transactions (Tx): extend Queries with more functions (sql.DB) by composition
-type Store struct { 
+// Store provides all functions to execute db queries and transactions (Tx); mock db
+type Store interface { 
+	Querier
+	TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error)
+}
+// SQLStore provides all functions to execute SQL queries and transactions (Tx); real db
+type SQLStore struct { 
 	*Queries // queries struct do not support transaction (only one operation on one specific table), so we need to extend its functionality by embedding it inside a struct (called composition), all individual query functions provided by Queries will be available to Store
-	db *sql.DB 
+	db *sql.DB // extend Queries with more functions (sql.DB) by composition 
 }
 
 // NewStore creates a new store
-func NewStore(db *sql.DB) *Store { // a pointer pointing to an Store type struct
-	return &Store{ // initialize a Store (Store{}) -> generate its address (&) -> in the future return it to a pointer with Store pointer type (*Store)
+func NewStore(db *sql.DB) Store { // a pointer pointing to an Store type struct
+	return &SQLStore{ // initialize a Store (Store{}) -> generate its address (&) -> in the future return it to a pointer with Store pointer type (*Store)
 		db:      db,
 		Queries: New(db), // func New(db DBTX) *Queries { return &Queries{db: db} }
 	}
 }
 
 // ExecTx executes a function within a database transaction?
-func (store *Store) execTx(ctx context.Context, fn func(*Queries) error) error { // returned error is not exported and thus starts with lower letter e
+func (store *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error { // returned error is not exported and thus starts with lower letter e
 	tx, err := store.db.BeginTx(ctx, nil) // ctx is used until the transaction is committed or rolled back.
 	if err != nil {
 		return err
@@ -80,7 +85,7 @@ func addMoney(
 
 // TransferTx performs a money transfer from one account to the other.
 // It creates the transfer, add account entries, and update accounts' balance within a single database transaction:
-func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) { 
+func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) { 
 	var result TransferTxResult // start with an empty result
 
 	
