@@ -2,16 +2,17 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 
 	db "github.com/chaogo/SimpleBank/db/sqlc"
+	"github.com/chaogo/SimpleBank/token"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 )
 
 type createAccountRequest struct {
-	Owner    string `json:"owner" binding:"required"` // With ShouldBindJSON, Gin will validate the output object to make sure it satisfy the conditions we specified in the binding tag
-	Currency string `json:"currency" binding:"required,currency"`
+	Currency string `json:"currency" binding:"required,currency"` // With ShouldBindJSON, Gin will validate the output object to make sure it satisfy the conditions we specified in the binding tag
 }
 
 func (server *Server) createAccount(ctx *gin.Context) {
@@ -22,8 +23,10 @@ func (server *Server) createAccount(ctx *gin.Context) {
 		return
 	}
 
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload) // MustGet will return a general interface which need to be casted to token.Payload object so that we can use "authPayload.Username"
+
 	arg := db.CreateAccountParams{
-		Owner: req.Owner,
+		Owner: authPayload.Username,
 		Currency: req.Currency,
 		Balance: 0,
 	}
@@ -66,6 +69,13 @@ func (server *Server) getAccount(ctx *gin.Context) {
 		return
 	}
 
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+	if account.Owner != authPayload.Username {
+		err := errors.New("account doesn't belong to the authenticated user")
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+
 	ctx.JSON(http.StatusOK, account)
 }
 
@@ -81,7 +91,9 @@ func (server *Server) listAccount(ctx *gin.Context) {
 		return
 	}
 
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 	arg := db.ListAccountsParams{
+		Owner: authPayload.Username,
 		Limit: req.PageSize,
 		Offset: (req.PageID - 1) * req.PageSize,
 	}
