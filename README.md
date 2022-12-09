@@ -1,1 +1,1 @@
-# A Simple Bank Project to Practice Backend Development
+# A Simple Bank Project to Master Backend Development
